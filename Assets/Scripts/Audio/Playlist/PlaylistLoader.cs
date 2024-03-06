@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,9 +11,9 @@ namespace Audio.Playlist
 {
     public static class PlaylistLoader
     {
-        public static async Task<PlaylistData?> ImportPlaylist(string PlaylistPath)
+        public static async Task<PlaylistData?> LoadPlaylist(string playlistPath)
         {
-            var pathInfo = new DirectoryInfo(PlaylistPath);
+            var pathInfo = new DirectoryInfo(playlistPath);
             if (!pathInfo.Exists)
             {
                 return null;
@@ -31,23 +32,22 @@ namespace Audio.Playlist
 
                 // Check if the name of the file is a number
                 var fileName = Path.GetFileNameWithoutExtension(file.Name);
-                var isSuccess = int.TryParse(fileName, out var parsedIndex);
-                if (!isSuccess)
+                var nameIsNumber = int.TryParse(fileName, out var parsedIndex);
+                if (!nameIsNumber)
                 {
                     continue;
                 }
                 
                 // Try loading the audio clip
-                Task<AudioClip?> task = AudioLoader.LoadAudioClipAsync(file.FullName);
-                await task;
+                AudioClip? task = await AudioLoader.LoadAudioClipAsync(file.FullName);
 
                 // Check if the AudioClip exist
-                if (task.Result is null)
+                if (task is null)
                 {
                     continue;
                 }
 
-                tracks.TryAdd(parsedIndex, new(task.Result, parsedIndex));
+                tracks.TryAdd(parsedIndex, new(task, parsedIndex));
             }
             
             // Check if there is at least track that has been imported
@@ -56,14 +56,39 @@ namespace Audio.Playlist
                 return null;
             }
 
+            // Import settings or give a default one
+            PlaylistSettings settings = await LoadPlaylistSettings(pathInfo.FullName) ?? new();
+            
             // Setup the playlist for exporting
             var playlist = new PlaylistData(
                 pathInfo.Name,
                 pathInfo.FullName,
-                tracks.Select(e => e.Value).ToList()
+                tracks.Select(e => e.Value).ToList(),
+                settings
                 );
 
             return playlist;
+        }
+
+        public static async Task<PlaylistSettings?> LoadPlaylistSettings(string playlistPath, string settingsName = "settings")
+        {
+            var settingsPath = $"{playlistPath}\\{settingsName}.json";
+
+            if (!File.Exists(settingsPath))
+            {
+                return null;
+            }
+            
+            var settingsText = await File.ReadAllTextAsync(settingsPath);
+            try
+            {
+                return JsonUtility.FromJson<PlaylistSettings>(settingsText);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                return null;
+            }
         }
     }
 }

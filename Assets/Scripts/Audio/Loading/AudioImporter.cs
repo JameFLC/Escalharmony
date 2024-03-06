@@ -3,31 +3,25 @@ using UnityEngine;
 
 namespace Audio.Loading
 {
+    
     public class AudioImporter : MonoBehaviour
     {
-        [SerializeField] private string ClipPath = "C:\\Users\\Jame\\Music\\test.mp3";
+        [SerializeField] private string ClipPath = "";
 
         // Start is called before the first frame update
         private async void Start()
         {
-            var task = PlaylistLoader.ImportPlaylist(ClipPath);
-
-            await task;
-
-            PlaylistData? playlist = task.Result;
+            PlaylistData? playlist = await PlaylistLoader.LoadPlaylist(ClipPath);
 
             if (playlist is null)
-            {
                 return;
-            }
             
-            Debug.Log(playlist.ToString());
+            Debug.Log(playlist);    
 
-            foreach (var track in playlist?.Tracks)
-            {
-                GetComponent<AudioSource>().PlayOneShot(track.Clip);
-                
-            }
+            var baba = GetComponent<AudioSource>();
+
+            baba.clip = playlist.Value.Tracks[0].Clip;
+            baba.Play();
         }
     }
 }
